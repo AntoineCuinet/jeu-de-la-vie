@@ -17,11 +17,30 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     const selResolution = document.getElementById("selResolution");
     const SIZE = 600;
 
+    const btnNext = document.getElementById("btnNext");
+    const btnStop = document.getElementById("btnStop");
+    const btnPlay = document.getElementById("btnPlay");
+    const btnReset = document.getElementById("btnReset");
+    const btnClear = document.getElementById("btnClear");
+
+
     selResolution.addEventListener("change", function(e) {
         let newSize = Number(e.target.value);
         grid = new Grid(newSize);
         grid.render(ctx);
     });
+    btnNext.addEventListener("click", function() {
+        grid.next();
+        grid.render(ctx);
+    });
+    btnClear.addEventListener("click", function() {
+        const response = confirm('Effacer le canvas actuel et recommencer un nouveau ?');
+        if(response) {
+            grid = new Grid(Number(selResolution.value));
+            grid.render(ctx);
+        }
+    });
+
     cvs.addEventListener("mousemove", function(e) {
         const rect = e.target.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -48,26 +67,42 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         }
 
         hover(x,y) {
-            // permet de traiter le survol par la souris d'un point de coordonnées x, y sur la grille
             let squareSize = this.size;
             this.over.row = Math.floor(y / squareSize);
             this.over.col = Math.floor(x / squareSize);
-
         }
 
         click() {
-            // permet de traiter un clic de la souris sur la grille
             const row = this.over.row;
             const col = this.over.col;
             this.grid[row][col] = this.grid[row][col] === 0 ? 1 : 0;
         }
         
         next() {
-            // permet de calculer l'état suivant de la grille
+            let nextGrid = Array(this.grid.length).fill(null).map(() => Array(this.grid[0].length).fill(0));
+            for(let row = 0; row < this.grid.length; ++row) {
+                for(let col = 0; col < this.grid[row].length; ++col) {
+                    const livingNeighbors = countNeighbors(row, col, this.grid, this.size);
+
+                    if (this.grid[row][col] === 1) {
+                        // Rule 1: A live cell with 2 or 3 neighbors stays alive, otherwise it dies
+                        nextGrid[row][col] = (livingNeighbors === 2 || livingNeighbors === 3) ? 1 : 0;
+                    } else {
+                        // Rule 2: A dead cell with exactly 3 neighbors becomes alive
+                        nextGrid[row][col] = (livingNeighbors === 3) ? 1 : 0;
+                    }
+                }
+            }
+
+            // Copy the nextGrid state back to the current grid
+            for (let row = 0; row < this.size; row++) {
+                for (let col = 0; col < this.size; col++) {
+                    this.grid[row][col] = nextGrid[row][col];
+                }
+            }
         }
 
         render(ctx) {
-            // permet de dessiner l'état courant de la grille sur le contexte de dessin (ctx de type 2DContext) passé en paramètre
             ctx.clearRect(0, 0, SIZE, SIZE);
 
             if(this.over.row >= 0 && this.over.col >= 0) {
@@ -94,6 +129,21 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         }
     }
 
-    // Initialisation de la grille
+    // Initialize a new grid
     let grid = new Grid(Number(selResolution.value));
+
+    function countNeighbors(row, col, grid, size) {
+        let count = 0;
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                if (i === 0 && j === 0) continue; // Skip the cell itself
+                const newRow = row + i;
+                const newCol = col + j;
+                if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
+                    count += grid[newRow][newCol];
+                }
+            }
+        }
+        return count;
+    }
 });
