@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     const btnPlay = document.getElementById("btnPlay");
     const btnReset = document.getElementById("btnReset");
     const btnClear = document.getElementById("btnClear");
+    let interval = null;
 
 
     selResolution.addEventListener("change", function(e) {
@@ -40,6 +41,25 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             grid.render(ctx);
         }
     });
+    btnReset.addEventListener("click", function() {
+        grid.restore();
+        grid.render(ctx);
+    });
+    btnPlay.addEventListener("click", function() {
+        btnNext.disabled = true;
+        btnStop.disabled = false;
+        btnPlay.disabled = true;
+        btnReset.disabled = true;
+        btnClear.disabled = true;
+
+        interval = setInterval(function() {
+            grid.next();
+            grid.render(ctx);
+        }, 100);
+    });
+    btnStop.addEventListener("click", function() {
+        stopAnimation();
+    });
 
     cvs.addEventListener("mousemove", function(e) {
         const rect = e.target.getBoundingClientRect();
@@ -55,6 +75,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     cvs.addEventListener("click", function() {
         grid.click();
         grid.render(ctx);
+        grid.save();
     });
 
 
@@ -64,6 +85,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             this.size = SIZE / size;
             this.grid = Array(size).fill(null).map(() => Array(size).fill(0)); // Initialize grid with 0
             this.over = {row: -1, col: -1};
+            this.savedGrid = null;
         }
 
         hover(x,y) {
@@ -79,9 +101,9 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         }
         
         next() {
-            let nextGrid = Array(this.grid.length).fill(null).map(() => Array(this.grid[0].length).fill(0));
-            for(let row = 0; row < this.grid.length; ++row) {
-                for(let col = 0; col < this.grid[row].length; ++col) {
+            let nextGrid = this.grid.map(row => [...row]); // Copy the current grid state with spread operator
+            for(let row = 0; row < this.grid.length; row++) {
+                for(let col = 0; col < this.grid[row].length; col++) {
                     const livingNeighbors = countNeighbors(row, col, this.grid, this.size);
 
                     if (this.grid[row][col] === 1) {
@@ -94,12 +116,13 @@ document.addEventListener("DOMContentLoaded", function(_e) {
                 }
             }
 
-            // Copy the nextGrid state back to the current grid
-            for (let row = 0; row < this.size; row++) {
-                for (let col = 0; col < this.size; col++) {
-                    this.grid[row][col] = nextGrid[row][col];
-                }
+            // Check if the current grid is equal to the next grid for stop the animation
+            if (isGridsEqual(this.grid, nextGrid)) {
+                stopAnimation();
             }
+
+            // Copy the nextGrid state back to the current grid
+            this.grid = nextGrid;
         }
 
         render(ctx) {
@@ -121,11 +144,11 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         }
 
         save() {
-            // permet d'enregistrer l'état actuel de la grille
+            this.savedGrid = this.grid.map(row => [...row]);
         }
 
         restore() {
-            // permet de restaurer l'état de la grille précédemment sauvegardé
+            this.grid = this.savedGrid.map(row => [...row]);
         }
     }
 
@@ -145,5 +168,26 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             }
         }
         return count;
+    }
+
+    function isGridsEqual(grid1, grid2) {
+        for (let row = 0; row < grid1.length; row++) {
+            for (let col = 0; col < grid1[row].length; col++) {
+                if (grid1[row][col] !== grid2[row][col]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function stopAnimation() {
+        btnNext.disabled = false;
+        btnStop.disabled = true;
+        btnPlay.disabled = false;
+        btnReset.disabled = false;
+        btnClear.disabled = false;
+
+        clearInterval(interval);
     }
 });
