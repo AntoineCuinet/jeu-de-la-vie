@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     const cvs = document.getElementById("cvs");
     const ctx = cvs.getContext("2d");
     const selResolution = document.getElementById("selResolution");
+    let oldSize = selResolution.value;
     const SIZE = 600;
 
     const btnNext = document.getElementById("btnNext");
@@ -24,11 +25,21 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     const btnClear = document.getElementById("btnClear");
     let interval = null;
 
+    const colorBase = document.getElementById('colorBase');
+    const speeds = document.getElementsByName('radSpeed');
+    let actualSpeed = 500;
 
     selResolution.addEventListener("change", function(e) {
-        let newSize = Number(e.target.value);
-        grid = new Grid(newSize);
-        grid.render(ctx);
+        const response = confirm('Effacer le canvas actuel et recommencer un nouveau ?');
+        if(response) {
+            grid = null;
+            let newSize = Number(e.target.value);
+            grid = new Grid(newSize);
+            grid.render(ctx);
+            oldSize = newSize;
+        } else {
+            document.querySelector(`#selResolution option[value="${oldSize}"]`).selected = true;
+        }
     });
     btnNext.addEventListener("click", function() {
         grid.next();
@@ -52,13 +63,34 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         btnReset.disabled = true;
         btnClear.disabled = true;
 
-        interval = setInterval(function() {
-            grid.next();
-            grid.render(ctx);
-        }, 100);
+        // Function to start the interval
+        const startInterval = () => {
+            clearInterval(interval); // Clear the previous interval
+            interval = setInterval(function() {
+                grid.next();
+                grid.render(ctx);
+            }, actualSpeed);
+        };
+
+        // Add event listeners to each radio button
+        for (const speed of speeds) {
+            speed.addEventListener('change', function() {
+                if (this.checked) {
+                    actualSpeed = this.value;
+                    startInterval(); // Restart the interval with the new speed
+                }
+            });
+        }
+
+        // Start the interval for the first time
+        startInterval();
     });
     btnStop.addEventListener("click", function() {
         stopAnimation();
+    });
+
+    colorBase.addEventListener('input', function() {
+        grid.render(ctx);
     });
 
     cvs.addEventListener("mousemove", function(e) {
@@ -104,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             let nextGrid = this.grid.map(row => [...row]); // Copy the current grid state with spread operator
             for(let row = 0; row < this.grid.length; row++) {
                 for(let col = 0; col < this.grid[row].length; col++) {
-                    const livingNeighbors = countNeighbors(row, col, this.grid, this.size);
+                    const livingNeighbors = countNeighbors(row, col, this.grid);
 
                     if (this.grid[row][col] === 1) {
                         // Rule 1: A live cell with 2 or 3 neighbors stays alive, otherwise it dies
@@ -136,7 +168,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             for(let row = 0; row < this.grid.length; ++row) {
                 for(let col = 0; col < this.grid[row].length; ++col) {
                     if(this.grid[row][col] === 1) {
-                        ctx.fillStyle = "black";
+                        ctx.fillStyle = colorBase.value;
                         ctx.fillRect(col * this.size, row * this.size, this.size, this.size);
                     }
                 }
@@ -155,14 +187,14 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     // Initialize a new grid
     let grid = new Grid(Number(selResolution.value));
 
-    function countNeighbors(row, col, grid, size) {
+    function countNeighbors(row, col, grid) {
         let count = 0;
         for (let i = -1; i <= 1; i++) {
             for (let j = -1; j <= 1; j++) {
                 if (i === 0 && j === 0) continue; // Skip the cell itself
                 const newRow = row + i;
                 const newCol = col + j;
-                if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
+                if (newRow >= 0 && newRow < grid.length && newCol >= 0 && newCol < grid[0].length) {
                     count += grid[newRow][newCol];
                 }
             }
