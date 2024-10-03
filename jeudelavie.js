@@ -277,8 +277,6 @@ document.addEventListener("DOMContentLoaded", function(_e) {
                 if (speed.value === savedData.speed) {
                     speed.checked = true;
                     break;
-                } else {
-                    speed.checked = false
                 }
             }
             actualSpeed = savedData.speed;
