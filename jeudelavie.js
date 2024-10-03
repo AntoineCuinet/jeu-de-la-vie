@@ -26,8 +26,16 @@ document.addEventListener("DOMContentLoaded", function(_e) {
     let interval = null;
 
     const colorBase = document.getElementById('colorBase');
+    const colorNew = document.getElementById('colorNew');
+    const colorDying = document.getElementById('colorDying');
+    const cbNew = document.getElementById('cbNew');
+    const cbDying = document.getElementById('cbDying');
+
     const speeds = document.getElementsByName('radSpeed');
     let actualSpeed = 500;
+
+    // Load the form data from the local storage
+    loadFormData();
 
     selResolution.addEventListener("change", function(e) {
         const response = confirm('Effacer le canvas actuel et recommencer un nouveau ?');
@@ -37,6 +45,8 @@ document.addEventListener("DOMContentLoaded", function(_e) {
             grid = new Grid(newSize);
             grid.render(ctx);
             oldSize = newSize;
+
+            saveFormData();
         } else {
             document.querySelector(`#selResolution option[value="${oldSize}"]`).selected = true;
         }
@@ -78,6 +88,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
                 if (this.checked) {
                     actualSpeed = this.value;
                     startInterval(); // Restart the interval with the new speed
+                    saveFormData();
                 }
             });
         }
@@ -91,6 +102,23 @@ document.addEventListener("DOMContentLoaded", function(_e) {
 
     colorBase.addEventListener('input', function() {
         grid.render(ctx);
+        saveFormData();
+    });
+    colorNew.addEventListener('input', function() {
+        grid.render(ctx);
+        saveFormData();
+    });
+    colorDying.addEventListener('input', function() {
+        grid.render(ctx);
+        saveFormData();
+    });
+    cbNew.addEventListener('change', function() {
+        grid.render(ctx);
+        saveFormData();
+    });
+    cbDying.addEventListener('change', function() {
+        grid.render(ctx);
+        saveFormData();
     });
 
     cvs.addEventListener("mousemove", function(e) {
@@ -116,6 +144,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         constructor(size) {
             this.size = SIZE / size;
             this.grid = Array(size).fill(null).map(() => Array(size).fill(0)); // Initialize grid with 0
+            this.previousGrid = Array(size).fill(null).map(() => Array(size).fill(0));
             this.over = {row: -1, col: -1};
             this.savedGrid = null;
         }
@@ -134,8 +163,8 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         
         next() {
             let nextGrid = this.grid.map(row => [...row]); // Copy the current grid state with spread operator
-            for(let row = 0; row < this.grid.length; row++) {
-                for(let col = 0; col < this.grid[row].length; col++) {
+            for(let row = 0; row < this.grid.length; ++row) {
+                for(let col = 0; col < this.grid[row].length; ++col) {
                     const livingNeighbors = countNeighbors(row, col, this.grid);
 
                     if (this.grid[row][col] === 1) {
@@ -153,6 +182,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
                 stopAnimation();
             }
 
+            this.previousGrid = this.grid.map(row => [...row]);
             // Copy the nextGrid state back to the current grid
             this.grid = nextGrid;
         }
@@ -167,8 +197,18 @@ document.addEventListener("DOMContentLoaded", function(_e) {
 
             for(let row = 0; row < this.grid.length; ++row) {
                 for(let col = 0; col < this.grid[row].length; ++col) {
+                    const livingNeighbors = countNeighbors(row, col, this.grid);
+                    const previousCell = this.previousGrid[row][col];
+
                     if(this.grid[row][col] === 1) {
-                        ctx.fillStyle = colorBase.value;
+                        if (previousCell === 0 && cbNew.checked) { // Prioritize new cells
+                            ctx.fillStyle = colorNew.value;
+                        } else if ((livingNeighbors !== 2 && livingNeighbors !== 3) && cbDying.checked) {
+                            ctx.fillStyle = colorDying.value;
+                        } else {
+                            ctx.fillStyle = colorBase.value;
+                        }
+
                         ctx.fillRect(col * this.size, row * this.size, this.size, this.size);
                     }
                 }
@@ -181,6 +221,7 @@ document.addEventListener("DOMContentLoaded", function(_e) {
 
         restore() {
             this.grid = this.savedGrid.map(row => [...row]);
+            this.previousGrid = this.savedGrid.map(row => [...row]);
         }
     }
 
@@ -221,5 +262,46 @@ document.addEventListener("DOMContentLoaded", function(_e) {
         btnClear.disabled = false;
 
         clearInterval(interval);
+    }
+
+
+    function loadFormData() {
+        const savedData = JSON.parse(localStorage.getItem("formData"));
+
+        if (savedData) {
+            // Apply the resolution
+            selResolution.value = savedData.resolution;
+
+            // Apply the speed
+            for (const speed of speeds) {
+                if (speed.value === savedData.speed) {
+                    speed.checked = true;
+                    break;
+                } else {
+                    speed.checked = false
+                }
+            }
+            actualSpeed = savedData.speed;
+            
+            // Apply the colors
+            colorBase.value = savedData.color;
+            colorNew.value = savedData.colorNew;
+            colorDying.value = savedData.colorDying;
+            cbNew.checked = savedData.cbNew;
+            cbDying.checked = savedData.cbDying;
+        }
+    }
+
+    function saveFormData() {
+        const formData = {
+            resolution: selResolution.value,
+            speed: actualSpeed,
+            color: colorBase.value,
+            colorNew: colorNew.value,
+            cbNew: cbNew.checked,
+            colorDying: colorDying.value,
+            cbDying: cbDying.checked
+        };
+        localStorage.setItem("formData", JSON.stringify(formData));
     }
 });
